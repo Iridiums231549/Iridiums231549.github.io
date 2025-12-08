@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甄嬛传·命运卷轴</title>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red-palace: #8e2e2e;
+            --gold-imperial: #bfa46f;
+            --text-ink: #2c2c2c;
+            --bg-paper: #f4f0e6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', 'SimSun', serif;
+            overflow: hidden;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 背景容器 */
+        #background-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        #background-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.7) blur(2px);
+        }
+
+        /* 顶部标题栏 */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(20,20,20,0.9) 0%, rgba(20,20,20,0.7) 100%);
+            padding: 20px 40px;
+            border-bottom: 3px solid var(--gold-imperial);
+            z-index: 10;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 3em;
+            color: var(--gold-imperial);
+            text-align: center;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            letter-spacing: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #ddd;
+            font-size: 1.1em;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* 时间轴容器 */
+        .timeline-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            z-index: 10;
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            bottom: 60px;
+            left: 5%;
+            right: 5%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold-imperial), transparent);
+        }
+
+        /* 人物卡片 */
+        .character-card {
+            position: relative;
+            width: 120px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1;
+        }
+
+        .character-card:hover {
+            transform: translateY(-15px) scale(1.1);
+            z-index: 2;
+        }
+
+        .character-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid var(--gold-imperial);
+            object-fit: cover;
+            box-shadow: 0 8px 25px rgba(142, 46, 46, 0.6);
+            transition: all 0.3s;
+        }
+
+        .character-card:hover .character-avatar {
+            border-color: #fff;
+            box-shadow: 0 12px 35px rgba(255, 215, 0, 0.8);
+        }
+
+        .character-label {
+            margin-top: 10px;
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 18px;
+            color: var(--gold-imperial);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.6);
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+
+        .phase-indicator {
+            font-size: 12px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+
+        /* 详情面板 */
+        .detail-panel {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 100;
+            display: flex;
+            transition: left 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .detail-panel.active {
+            left: 0;
+        }
+
+        .detail-left {
+            width: 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: linear-gradient(135deg, rgba(142,46,46,0.3), rgba(0,0,0,0.8));
+        }
+
+        .detail-avatar-large {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 12px;
+            border: 5px solid var(--gold-imperial);
+            box-shadow: 0 15px 50px rgba(191,164,111,0.5);
+            object-fit: contain;
+        }
+
+        .detail-right {
+            width: 60%;
+            padding: 60px 50px;
+            overflow-y: auto;
+            color: #fff;
+        }
+
+        .detail-right h2 {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 3em;
+            color: var(--gold-imperial);
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+
+        .detail-phase {
+            display: inline-block;
+            padding: 8px 20px;
+            background: var(--red-palace);
+            color: #fff;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .detail-quote {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.8em;
+            color: #d4b87a;
+            font-style: italic;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(191,164,111,0.1);
+            border-left: 4px solid var(--gold-imperial);
+            line-height: 1.6;
+        }
+
+        .detail-content {
+            font-size: 1.2em;
+            line-height: 2;
+            color: #ddd;
+            margin-top: 20px;
+            text-align: justify;
+        }
+
+        .detail-place {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(142,46,46,0.3);
+            border-radius: 8px;
+        }
+
+        .detail-place strong {
+            color: var(--gold-imperial);
+            font-size: 1.1em;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            width: 50px;
+            height: 50px;
+            background: var(--red-palace);
+            color: #fff;
+            border: 2px solid var(--gold-imperial);
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 101;
+        }
+
+        .close-btn:hover {
+            background: var(--gold-imperial);
+            color: #000;
+            transform: rotate(90deg);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .character-card {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .character-card:nth-child(2n) {
+            animation-delay: 0.5s;
+        }
+
+        .character-card:nth-child(3n) {
+            animation-delay: 1s;
+        }
+
+        /* 滚动条美化 */
+        .detail-right::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .detail-right::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+        }
+
+        .detail-right::-webkit-scrollbar-thumb {
+            background: var(--gold-imperial);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+<!-- 背景容器 -->
+<div id="background-container">
+    <img id="background-image" src="https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/0.jpg" alt="宫廷背景">
+</div>
+
+<!-- 顶部标题 -->
+<div class="header">
+    <h1>甄嬛传 · 命运卷轴</h1>
+    <div class="subtitle">"逆风如解意，容易莫摧残" — 权力与情感的消长</div>
+</div>
+
+<!-- 时间轴 -->
+<div class="timeline-container">
+    <div class="timeline" id="timeline"></div>
+</div>
+
+<!-- 详情面板 -->
+<div class="detail-panel" id="detailPanel">
+    <button class="close-btn" onclick="closeDetail()">✕</button>
+    <div class="detail-left">
+        <img id="detailAvatar" class="detail-avatar-large" src="" alt="">
+    </div>
+    <div class="detail-right">
+        <h2 id="detailTitle"></h2>
+        <span class="detail-phase" id="detailPhase"></span>
+        <div class="detail-quote" id="detailQuote"></div>
+        <div class="detail-content" id="detailContent"></div>
+        <div class="detail-place">
+            <strong>🏛 关键地点：</strong>
+            <span id="detailPlace"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 数据结构
+    const timelineData = [
+        { id: 1, title: "初入宫闱", phase: "天真", place: "碎玉轩", quote: "嬛嬛一袅楚宫腰", content: "因容貌酷似纯元皇后中选，彼时只想以此身避世，不愿卷入纷争。那年她十七岁，眼中有星辰大海，心中只有父母姐妹。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/1.jpg" },
+        { id: 2, title: "姐妹结义", phase: "天真", place: "御花园", quote: "宁可枝头抱香死，何曾吹落北风中", content: "与眉庄、陵容情同手足，在这个吃人的后宫中抱团取暖。三人焚香盟誓，约定无论风雨都要守护彼此。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/2.jpg" },
+        { id: 3, title: "惊鸿一瞥", phase: "天真", place: "圆明园", quote: "愿得一心人，白首不相离", content: "得宠后的甜蜜时光，以为遇上了真心人，却不知早已树大招风。那些月下的情话，最终都成了镜花水月。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/3.jpg" },
+        { id: 4, title: "痛失一子", phase: "争斗", place: "翊坤宫", quote: "皇上，你害得世兰好苦啊", content: "华妃设计，初次流产。开始明白忍让并不能换来安稳。这一日，她第一次见到了宫墙的血色。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/4.jpg" },
+        { id: 5, title: "莞莞类卿", phase: "争斗", place: "碎玉轩", quote: "这几年的情爱与时光，终究是错付了", content: "误穿旧衣，得知自己不过是纯元的替身。心死，产后自请出宫。原来，她从未被真正爱过。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/5.jpg" },
+        { id: 6, title: "甘露修行", phase: "争斗", place: "甘露寺", quote: "此时此刻，我只属于你", content: "在凌云峰与果郡王相爱，这是她一生中唯一的真心时刻。山间的风，带走了她最后的天真。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/6.jpg" },
+        { id: 7, title: "熹妃回宫", phase: "复仇", place: "永寿宫", quote: "如果是为了保护身边的人，我愿意去争", content: "为保全家族和腹中孩子，设计风光回宫，从此不再是那个甄嬛。凤凰涅槃，浴火重生。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/7.jpg" },
+        { id: 8, title: "滴血验亲", phase: "复仇", place: "景仁宫", quote: "无论谁想害我，我都要她付出代价", content: "皇后党的绝地反扑，甄嬛凭机智化险为夷，反将一军。她已学会在血海中起舞。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/8.jpg" },
+        { id: 9, title: "双毒合一", phase: "复仇", place: "翊坤宫", quote: "皇后杀了皇后", content: "最终扳倒皇后，在这场没有硝烟的战争中获得了实质胜利。曾经的姐妹，如今只剩利刃相向。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/9.jpg" },
+        { id: 10, title: "允礼之死", phase: "巅峰", place: "桐花台", quote: "花落了，就再也开不回去了", content: "皇帝逼迫甄嬛亲手毒杀果郡王。这一刻，她对皇帝彻底充满了恨意。爱到尽头是决绝。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/10.jpg" },
+        { id: 11, title: "屠龙时刻", phase: "巅峰", place: "养心殿", quote: "皇上，驾崩——", content: "言语刺激病重的皇帝，送他最后一程。那个曾经爱她的男人，终于死在她的算计之下。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/11.jpg" },
+        { id: 12, title: "太后千秋", phase: "巅峰", place: "寿康宫", quote: "不过是三十岁的年纪，怎么这样累", content: "登上太后之位，万人之上。回首过往，故人长绝，只剩无尽孤独。高处不胜寒，她终于明白了这句话的含义。", image: "https://iridiums231549.github.io/images-%E7%94%84%E5%AC%9B/12.jpg" }
+    ];
+
+    // 初始化时间轴
+    function initTimeline() {
+        const timeline = document.getElementById('timeline');
+        timeline.innerHTML = '';
+
+        timelineData.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'character-card';
+            card.onclick = () => showDetail(item);
+
+            const avatar = document.createElement('img');
+            avatar.className = 'character-avatar';
+            avatar.src = item.image;
+            avatar.alt = item.title;
+
+            const label = document.createElement('div');
+            label.className = 'character-label';
+            label.textContent = item.title;
+
+            const phase = document.createElement('div');
+            phase.className = 'phase-indicator';
+            phase.textContent = item.phase;
+
+            card.appendChild(avatar);
+            card.appendChild(label);
+            card.appendChild(phase);
+            timeline.appendChild(card);
+        });
+    }
+
+    // 显示详情
+    function showDetail(item) {
+        document.getElementById('detailPanel').classList.add('active');
+        document.getElementById('detailTitle').textContent = item.title;
+        document.getElementById('detailPhase').textContent = item.phase;
+        document.getElementById('detailQuote').textContent = `"${item.quote}"`;
+        document.getElementById('detailContent').textContent = item.content;
+        document.getElementById('detailPlace').textContent = item.place;
+        document.getElementById('detailAvatar').src = item.image;
+    }
+
+    // 关闭详情
+    function closeDetail() {
+        document.getElementById('detailPanel').classList.remove('active');
+    }
+
+    // 初始化
+    initTimeline();
+
+    // ESC关闭详情
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDetail();
+        }
+    });
+</script>
+</body>
+</html>

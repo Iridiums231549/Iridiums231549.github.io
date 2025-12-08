@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甄嬛传 - 势力三足鼎立图</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper-bg: #fdfbf5;
+            --ink-main: #2b2b2b;
+            --gold-accent: #bfa46f;
+            --border-color: #8c7b6c;
+            --highlight-red: #8B0000;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--paper-bg);
+            background-image: url('https://iridiums231549.github.io/images-%E4%BA%BA%E7%89%A9%E5%85%B3%E7%B3%BB/background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-blend-mode: multiply;
+            font-family: "Noto Serif SC", "SimSun", serif;
+            overflow: hidden;
+            color: var(--ink-main);
+            /* 启用拖拽 */
+            cursor: grab;
+        }
+        body:active {
+            cursor: grabbing;
+        }
+
+        #graph-container { width: 100vw; height: 100vh; position: relative; }
+
+        /* --- 弹窗样式 (保持上个版本的雅致风格) --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0; transition: opacity 0.3s;
+        }
+
+        .modal-content {
+            width: 900px; height: 600px;
+            background: #fffbf0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            position: relative;
+            transform: scale(0.9); transition: transform 0.3s;
+            background-image: linear-gradient(rgba(140, 123, 108, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(140, 123, 108, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .close-btn {
+            position: absolute; top: 10px; right: 20px;
+            font-size: 32px; cursor: pointer; color: var(--border-color);
+            z-index: 10; font-family: serif;
+        }
+        .close-btn:hover { color: var(--highlight-red); }
+
+        .info-panel {
+            width: 320px; padding: 30px;
+            border-right: 2px solid rgba(140, 123, 108, 0.2);
+            display: flex; flex-direction: column; align-items: center;
+            background: rgba(255, 255, 255, 0.6);
+        }
+        .info-img-box { width: 180px; height: 240px; margin-bottom: 20px; border: 4px double var(--border-color); padding: 5px; background: #fff; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); }
+        .info-img-box img { width: 100%; height: 100%; object-fit: cover; }
+        .info-title { font-family: 'Ma Shan Zheng', cursive; font-size: 36px; margin: 5px 0; color: var(--ink-main); }
+        .info-tags { display: flex; gap: 8px; margin-bottom: 15px; }
+        .tag { font-size: 12px; padding: 2px 8px; border-radius: 2px; border: 1px solid var(--gold-accent); color: #555; background: rgba(255,255,255,0.8); }
+        .info-desc { font-size: 14px; line-height: 1.8; color: #444; text-align: justify; text-indent: 2em; overflow-y: auto; width: 100%; }
+
+        .relation-panel { flex: 1; position: relative; background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(230,225,215,0.6) 100%); }
+        .panel-title { position: absolute; top: 15px; left: 15px; font-family: 'Ma Shan Zheng'; font-size: 20px; color: #888; }
+
+        /* --- D3 元素样式 --- */
+        .link { stroke-opacity: 0.6; stroke: #8c7b6c; transition: all 0.3s; }
+        .link-text {
+            font-size: 11px; fill: #555; pointer-events: none;
+            font-family: "Noto Serif SC"; font-weight: bold;
+            /* 移除文字阴影 */
+            text-shadow: none !important;
+            opacity: 1; transition: opacity 0.3s;
+        }
+
+        .node circle { stroke: var(--gold-accent); stroke-width: 2px; cursor: move; transition: all 0.3s; }
+        .node:hover circle { stroke: var(--highlight-red); stroke-width: 4px; }
+        .node.dimmed { opacity: 0.1; }
+
+        .node text {
+            pointer-events: none; font-size: 14px;
+            font-family: 'Ma Shan Zheng', cursive; fill: #2c2c2c;
+            /* 移除文字阴影 */
+            text-shadow: none !important;
+        }
+
+        /* 图例 (保持不变) */
+        .legend { position: absolute; bottom: 20px; left: 20px; padding: 10px; background: rgba(255,255,255,0.8); border-radius: 4px; border: 1px solid #ccc; }
+        .legend-item { display: flex; align-items: center; margin: 4px 0; font-size: 13px; color: #555; }
+        .legend-color { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+    </style>
+</head>
+<body>
+
+<div id="graph-container"></div>
+
+<div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#D4AF37"></div>皇室成员</div>
+    <div class="legend-item"><div class="legend-color" style="background:#C94E50"></div>甄嬛阵营</div>
+    <div class="legend-item"><div class="legend-color" style="background:#4B0082"></div>皇后阵营</div>
+    <div class="legend-item"><div class="legend-color" style="background:#FF69B4"></div>华妃阵营</div>
+</div>
+
+<div id="modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="close-btn" onclick="closeModal()">×</div>
+
+        <div class="info-panel">
+            <div class="info-img-box">
+                <img id="d-img" src="" onerror="this.src='https://via.placeholder.com/200x300?text=无画像'">
+            </div>
+            <div class="info-title" id="d-name">人物</div>
+            <div class="info-tags">
+                <span class="tag" id="d-title">位份</span>
+                <span class="tag" id="d-alliance">阵营</span>
+            </div>
+            <div class="info-desc" id="d-desc">介绍...</div>
+        </div>
+
+        <div id="sub-graph" class="relation-panel">
+            <div class="panel-title">人物关系网</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const colors = {
+        "皇室成员": "#D4AF37", "甄嬛阵营": "#C94E50",
+        "皇后阵营": "#4B0082", "皇后阵容": "#4B0082", // 容错处理
+        "华妃阵营": "#FF69B4", "default": "#8c7b6c"
+    };
+
+    const svg = d3.select("#graph-container").append("svg")
+        .attr("width", width).attr("height", height)
+        .call(d3.zoom().scaleExtent([0.1, 4]).on("zoom", e => container.attr("transform", e.transform)))
+        .on("dblclick.zoom", null); // 移除双击缩放避免冲突
+
+    const container = svg.append("g");
+    const defs = svg.append("defs");
+
+    // 箭头定义
+    defs.append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10")
+        .attr("refX", 26).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6)
+        .attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#8c7b6c");
+
+    let globalData = null; // 存储原始数据
+
+    // --- 派系坐标定义 (核心布局) ---
+    const alliancePositions = {
+        // 雍正为中心
+        "皇室成员": { x: width / 2, y: height / 2, strength: 0.15 },
+        // 皇后/宜修 - 左上
+        "皇后阵营": { x: width / 4, y: height / 4, strength: 0.08 },
+        "皇后阵容": { x: width / 4, y: height / 4, strength: 0.08 },
+        // 华妃/年世兰 - 左下
+        "华妃阵营": { x: width / 4, y: 3 * height / 4, strength: 0.08 },
+        // 甄嬛 - 右侧
+        "甄嬛阵营": { x: 3 * width / 4, y: height / 2, strength: 0.08 }
+    };
+
+    // --- 工具函数：合并双向连线 (复用上一版逻辑) ---
+    function mergeBidirectionalEdges(edges) {
+        const map = new Map();
+        const result = [];
+        edges.forEach(edge => {
+            const isSourceSmaller = edge.source < edge.target;
+            const s = isSourceSmaller ? edge.source : edge.target;
+            const t = isSourceSmaller ? edge.target : edge.source;
+            const key = `${s}-${t}`;
+
+            if (map.has(key)) {
+                const existing = map.get(key);
+                // 合并文字
+                if (!existing.Relationship.includes(edge.Relationship)) {
+                    existing.Relationship += ` / ${edge.Relationship}`;
+                }
+            } else {
+                const newEdge = { ...edge };
+                map.set(key, newEdge);
+                result.push(newEdge);
+            }
+        });
+        return result;
+    }
+
+    // --- D3 拖拽函数 (启用手动移动) ---
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        // 关键角色保持固定，非关键角色释放拖拽锁定
+        if (!['雍正', '宜修', '年世兰', '甄嬛'].includes(d.Label)) {
+            d.fx = null;
+            d.fy = null;
+        }
+    }
+
+    // --- 核心数据加载与仿真 ---
+    d3.json("https://iridiums231549.github.io/data.json").then(data => {
+        globalData = data;
+        const nodes = data.nodes.map(d => ({...d}));
+        const links = mergeBidirectionalEdges(data.edges);
+
+        // 1. 强制固定核心人物坐标 (实现三足鼎立)
+        nodes.forEach(d => {
+            if (d.Label === '雍正') {
+                d.fx = alliancePositions['皇室成员'].x;
+                d.fy = alliancePositions['皇室成员'].y;
+            } else if (d.Label === '宜修') { // 皇后
+                d.fx = alliancePositions['皇后阵营'].x;
+                d.fy = alliancePositions['皇后阵营'].y;
+            } else if (d.Label === '年世兰') { // 华妃
+                d.fx = alliancePositions['华妃阵营'].x;
+                d.fy = alliancePositions['华妃阵营'].y;
+            } else if (d.Label === '甄嬛') {
+                d.fx = alliancePositions['甄嬛阵营'].x;
+                d.fy = alliancePositions['甄嬛阵营'].y;
+            }
+        });
+
+        // 2. 图片 Pattern
+        nodes.forEach(n => {
+            defs.append("pattern").attr("id", `img-${n.ID}`)
+                .attr("width", 1).attr("height", 1)
+                .attr("patternContentUnits", "objectBoundingBox")
+                .append("image").attr("href", `https://iridiums231549.github.io/images-%E4%BA%BA%E7%89%A9%E5%85%B3%E7%B3%BB/${n.Label}.jpg`)
+                .attr("width", 1).attr("height", 1)
+                .attr("preserveAspectRatio", "xMidYMid slice");
+        });
+
+        // 3. 仿真设置 (动态模式)
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.ID).distance(100))
+            .force("charge", d3.forceManyBody().strength(-800))
+            .force("collide", d3.forceCollide(45))
+            // --- 派系聚集力 ---
+            // 根据阵营，将节点拉向预设的坐标
+            .force("allianceX", d3.forceX(d => alliancePositions[d.Alliance]?.x || width / 2).strength(d => alliancePositions[d.Alliance]?.strength || 0.01))
+            .force("allianceY", d3.forceY(d => alliancePositions[d.Alliance]?.y || height / 2).strength(d => alliancePositions[d.Alliance]?.strength || 0.01));
+
+        // 4. 绘图
+        const link = container.append("g").attr("class", "links")
+            .selectAll("line").data(links).enter().append("line")
+            .attr("class", "link")
+            .attr("stroke-width", 1.5)
+            .attr("marker-end", "url(#arrow)");
+
+        const linkText = container.append("g").selectAll("text")
+            .data(links).enter().append("text")
+            .attr("class", "link-text")
+            .attr("dy", -5).attr("text-anchor", "middle")
+            .text(d => d.Relationship);
+
+        const node = container.append("g").attr("class", "nodes")
+            .selectAll("g").data(nodes).enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag() // 启用拖拽
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+        // 节点圆圈（先设置阵营色为默认填充）
+        const nodeCircle = node.append("circle")
+            .attr("r", d => ['雍正', '宜修', '年世兰', '甄嬛'].includes(d.Label) ? 35 : 24)
+            .attr("fill", d => colors[d.Alliance] || colors["default"]) // 无图时显示阵营色
+            .attr("stroke", d => colors[d.Alliance]);
+
+        // 为有图片的节点设置图片填充（图片加载失败时保持阵营色）
+        nodes.forEach(n => {
+            // 尝试加载图片
+            const img = new Image();
+            img.src = `https://iridiums231549.github.io/images-%E4%BA%BA%E7%89%A9%E5%85%B3%E7%B3%BB/${n.Label}.jpg`;
+
+            img.onload = () => {
+                // 图片加载成功：使用图片填充
+                nodeCircle.filter(d => d.ID === n.ID)
+                    .attr("fill", `url(#img-${n.ID})`);
+            };
+
+            // 图片加载失败：保持阵营色（无需额外操作）
+            img.onerror = () => {};
+        });
+
+        node.append("circle").attr("r", d => ['雍正', '宜修', '年世兰', '甄嬛'].includes(d.Label) ? 35 : 24)
+            .attr("fill", d => `url(#img-${d.ID})`)
+            .attr("stroke", d => colors[d.Alliance]);
+
+        node.append("text").attr("dy", d => ['雍正', '宜修', '年世兰', '甄嬛'].includes(d.Label) ? 55 : 42)
+            .attr("text-anchor", "middle")
+            .text(d => d.Label);
+
+        // 5. 动态更新循环
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+
+            linkText
+                .attr("x", d => (d.source.x + d.target.x) / 2)
+                .attr("y", d => (d.source.y + d.target.y) / 2);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // 6. 交互逻辑
+        node.on("mouseover", function(e, d) {
+            const related = new Set();
+            related.add(d.ID);
+            links.forEach(l => {
+                if(l.source.id === d.ID) related.add(l.target.id);
+                if(l.target.id === d.ID) related.add(l.source.id);
+            });
+
+            node.classed("dimmed", n => !related.has(n.ID));
+            link.classed("dimmed", l => !related.has(l.source.id) || !related.has(l.target.id));
+            linkText.classed("dimmed", l => !related.has(l.source.id) || !related.has(l.target.id));
+        }).on("mouseout", function() {
+            node.classed("dimmed", false);
+            link.classed("dimmed", false);
+            linkText.classed("dimmed", false);
+        });
+
+        node.on("click", (e, d) => openModal(d));
+    });
+
+    // --- 弹窗与子图逻辑 (保持不变) ---
+    function openModal(d) {
+        const modal = document.getElementById('modal');
+        const content = modal.querySelector('.modal-content');
+
+        // 填充信息
+        document.getElementById('d-name').innerText = d.Label;
+        document.getElementById('d-title').innerText = d.Title;
+        document.getElementById('d-alliance').innerText = d.Alliance;
+        document.getElementById('d-alliance').style.color = colors[d.Alliance];
+        document.getElementById('d-alliance').style.borderColor = colors[d.Alliance];
+        document.getElementById('d-desc').innerText = d.角色描述 || "暂无记录";
+        // 弹窗图片优化：无图时显示阵营色背景
+        const imgElement = document.getElementById('d-img');
+        imgElement.src = `https://iridiums231549.github.io/images-%E4%BA%BA%E7%89%A9%E5%85%B3%E7%B3%BB/${d.Label}.jpg`;
+        imgElement.style.backgroundColor = colors[d.Alliance] || colors["default"];
+        imgElement.onerror = function() {
+            this.src = ''; // 清空无效图片
+            this.style.backgroundColor = colors[d.Alliance] || colors["default"];
+            this.alt = d.Label;
+        };
+
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.style.opacity = 1;
+            content.style.transform = 'scale(1)';
+        }, 10);
+
+        renderSubGraph(d.ID);
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('modal');
+        const content = modal.querySelector('.modal-content');
+        modal.style.opacity = 0;
+        content.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    }
+
+    function renderSubGraph(centerId) {
+        const container = d3.select("#sub-graph");
+        container.selectAll("svg").remove();
+        container.select(".panel-title").remove();
+        container.append("div").attr("class", "panel-title").text("人物关系网");
+
+        const w = container.node().clientWidth;
+        const h = container.node().clientHeight;
+        const subSvg = container.append("svg").attr("width", w).attr("height", h);
+
+        const rawEdges = globalData.edges.filter(e => e.source === centerId || e.target === centerId);
+        const mergedEdges = mergeBidirectionalEdges(rawEdges);
+
+        const nodeIds = new Set();
+        nodeIds.add(centerId);
+        mergedEdges.forEach(e => {
+            nodeIds.add(e.source);
+            nodeIds.add(e.target);
+        });
+
+        const subNodes = globalData.nodes.filter(n => nodeIds.has(n.ID)).map(n => ({...n}));
+        const subLinks = mergedEdges.map(e => ({...e}));
+
+        const sim = d3.forceSimulation(subNodes)
+            .force("link", d3.forceLink(subLinks).id(d => d.ID).distance(120))
+            .force("charge", d3.forceManyBody().strength(-500))
+            .force("center", d3.forceCenter(w/2, h/2))
+            .force("collide", d3.forceCollide(35));
+
+        const link = subSvg.append("g").selectAll("line")
+            .data(subLinks).enter().append("line")
+            .attr("stroke", "#999").attr("stroke-width", 1).attr("marker-end", "url(#arrow)");
+
+        const linkText = subSvg.append("g").selectAll("text")
+            .data(subLinks).enter().append("text")
+            .attr("font-size", "11px").attr("fill", "#555")
+            .attr("text-anchor", "middle")
+            .text(d => d.Relationship);
+
+        const node = subSvg.append("g").selectAll("g")
+            .data(subNodes).enter().append("g")
+            .call(d3.drag()
+                .on("start", (e,d)=>{ if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+                .on("drag", (e,d)=>{ d.fx=e.x; d.fy=e.y; })
+                .on("end", (e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
+            );
+
+        node.append("circle").attr("r", d => d.ID===centerId ? 22 : 15)
+            .attr("fill", d => d.ID===centerId ? "#fff" : (colors[d.Alliance] || "#ccc"))
+            .attr("stroke", d => d.ID===centerId ? "#bfa46f" : "#fff")
+            .attr("stroke-width", 2);
+
+        node.append("text").attr("dy", 28).attr("text-anchor", "middle")
+            .style("font-size", "12px").text(d => d.Label);
+
+        sim.on("tick", () => {
+            link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+                .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+            linkText.attr("x", d=>(d.source.x+d.target.x)/2)
+                .attr("y", d=>(d.source.y+d.target.y)/2);
+            node.attr("transform", d=>`translate(${d.x},${d.y})`);
+        });
+    }
+</script>
+</body>
+</html>
